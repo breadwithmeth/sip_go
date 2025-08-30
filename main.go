@@ -513,7 +513,7 @@ func runCall(number string) error {
 		}
 
 		// record 3s
-		if err := rtpRecordFixedDuration(rtpConn, recordFile, 1*time.Second); err != nil {
+		if err := rtpRecordFixedDuration(rtpConn, recordFile, 2*time.Second); err != nil {
 			log.Println("recording error:", err)
 			continue
 		}
@@ -1787,6 +1787,11 @@ func transcribeOpenAI(wavPath string, preferredLang string) (string, error) {
 	}
 	defer f.Close()
 
+	// если язык не указан, берём русский
+	if strings.TrimSpace(preferredLang) == "" {
+		preferredLang = "ru"
+	}
+
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 
@@ -1794,10 +1799,8 @@ func transcribeOpenAI(wavPath string, preferredLang string) (string, error) {
 	io.Copy(fw, f)
 
 	_ = w.WriteField("model", "gpt-4o-mini-transcribe")
-	if preferredLang == "ru" || preferredLang == "kk" {
-		_ = w.WriteField("language", preferredLang)
-	}
-	_ = w.WriteField("response_format", "text") // ← ВАЖНО
+	_ = w.WriteField("language", preferredLang) // теперь всегда заполняется
+	_ = w.WriteField("response_format", "text")
 
 	w.Close()
 
@@ -1815,7 +1818,7 @@ func transcribeOpenAI(wavPath string, preferredLang string) (string, error) {
 	if resp.StatusCode != 200 {
 		return "", fmt.Errorf("OpenAI STT %d: %s", resp.StatusCode, truncate(string(b), 400))
 	}
-	// вернётся чистое "Нет." без JSON и кавычек
+
 	return strings.TrimSpace(string(b)), nil
 }
 
